@@ -1,4 +1,4 @@
-FROM ceph/daemon
+FROM ceph/daemon:tag-build-master-infernalis-ubuntu-16.04
 MAINTAINER Nazar Mokrynskyi <nazar@mokrynskyi.com>
 
 RUN \

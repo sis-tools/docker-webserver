@@ -3,31 +3,18 @@ MAINTAINER Nazar Mokrynskyi <nazar@mokrynskyi.com>
 
 RUN \
 
-# percona-xtrabackup and socat packages contain innobackupex and socat apps that are necessary for Snapshot State Transfer (for initial replication)
 # We'll need inotify-tools package to watch for files changes
-# We'll use pwgen to generate password
 
 	apt-get update && \
 	apt-get upgrade -y && \
-	apt-get install -y inotify-tools socat && \
-
-# Percona repository for fresh version of percona-xtrabackup because version from repository doesn't support MariaDB 10.1
-
-	PERCONA_PACKAGE=percona-release_0.1-3.jessie_all.deb && \
-	apt-get install -y --no-install-recommends wget ca-certificates && \
-	wget https://repo.percona.com/apt/$PERCONA_PACKAGE && \
-	apt-get purge -y --auto-remove wget ca-certificates && \
-	dpkg -i $PERCONA_PACKAGE && \
-	rm $PERCONA_PACKAGE && \
-	apt-get update && \
-	apt-get install -y percona-xtrabackup && \
+	apt-get install -y inotify-tools && \
 
 # Ceph repository for up to date version of ceph-fuse package; Ceph itself is used as cluster filesystem
 
 	CEPH_VERSION=infernalis && \
 	apt-get install -y --no-install-recommends curl ca-certificates && \
 	curl -sSL 'https://download.ceph.com/keys/release.asc' | apt-key add - && \
-	apt-get purge -y --auto-remove curl ca-certificates && \
+	apt-get purge -y --auto-remove curl && \
 	echo "deb http://ceph.com/debian-$CEPH_VERSION/ jessie main" > /etc/apt/sources.list.d/ceph-$CEPH_VERSION.list && \
 	apt-get update && \
 	apt-get install -y --no-install-recommends ceph-fuse && \
@@ -52,8 +39,16 @@ RUN \
 
 # Copy original entrypoint without exec call in order to use it as MariaDB initialization script
 
-	sed 's/exec "$@"//g' /docker-entrypoint.sh > /docker-entrypoint-init.sh && \
-	chmod +x /docker-entrypoint-init.sh
+	sed 's/exec "$@"//g' /usr/local/bin/docker-entrypoint.sh > /docker-entrypoint-init.sh && \
+	chmod +x /docker-entrypoint-init.sh && \
+
+# Restore original ids of mysql user and group they will replace existing mysql group from the image, which were changed to custom
+
+	userdel mysql && \
+	addgroup -gid 999 mysql && \
+	useradd -d /data -s /bin/bash -g 999 -u 999 mysql && \
+
+	chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
 
 COPY ceph-mount.sh /
 COPY consul-dns.sh /
